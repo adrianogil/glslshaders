@@ -1,3 +1,4 @@
+// Based on https://www.desmos.com/calculator/zoztpexlvh
 #ifdef GL_ES
 precision mediump float;
 #endif
