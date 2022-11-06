@@ -10,6 +10,7 @@ float square(vec2 uv, vec2 center, float size)
 {
     float diffx = abs(uv.x - center.x);
     float diffy = abs(uv.y - center.y);
+    
     if (diffx <= size && diffy <= size)
     {
         return 0.1 + 0.9 * max(diffx, diffy) / 0.2;

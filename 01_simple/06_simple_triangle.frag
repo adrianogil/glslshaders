@@ -37,7 +37,7 @@ void main (void) {
 
     vec2 uv = scale * 2.0 * (st - vec2(0.5, 0.5));
 
-    float value = triangle(uv, vec2(0, 0), vec2(0, 0.5), vec2(0.2, 0.2), vec2(-0.6, -0.2));
+    float value = triangle(uv, vec2(0, 0), vec2(0.0, 0.5), vec2(0.7, 0.2), vec2(-0.6, -0.2));
 
     vec3 color = vec3(value, 0.0, 0.0);
 
