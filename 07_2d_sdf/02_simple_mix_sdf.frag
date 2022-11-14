@@ -22,13 +22,11 @@ vec3 sdfSquare(vec2 uv, float size, vec2 center, float angle) {
     return d > 0. ? vec3(1.) : vec3(1., 0., 0.);
 }
 
-vec3 sdfCircle(vec2 uv, vec2 center, float r) {
+float sdfCircle(vec2 uv, float r, vec2 center) {
     float x = uv.x - center.x;
     float y  = uv.y -  center.y;
 
-    float d = length(vec2(x,y)) - r;
-
-    return d > 0. ? vec3(1.) : vec3(0., 0., 1.);
+    return length(vec2(x,y)) - r;
 }
 
 vec3 getBackgroundColor(vec2 uv) {
@@ -38,6 +36,19 @@ vec3 getBackgroundColor(vec2 uv) {
     return mix(gradientStartColor, gradientEndColor, uv.y); // gradient goes from bottom to top
 }
 
+vec3 drawScene(vec2 uv) {
+  vec3 backgroundColor = getBackgroundColor(uv);
+  vec3 col = backgroundColor;
+  
+  float circle = sdfCircle(uv, 0.1, vec2(0, 0));
+  float circleBorder = 0.01;
+  vec3 circleColor = circle > - circleBorder? vec3(0, 0, 0) : vec3(0, 0, 1);
+  
+  col = mix(circleColor, col, step(0., circle));
+  
+  return col;
+}
+
 void main(void) {
     vec2 uv = gl_FragCoord.xy/u_resolution.xy; // <0, 1>
     uv -= 0.5; // <-0.5,0.5>
@@ -45,10 +56,11 @@ void main(void) {
     // Adjust for screen aspect ratio
     uv.x *= scale * u_resolution.x / u_resolution.y;
     
-    vec2 square_pos = vec2(0.1, 0.0);
-    vec3 col = sdfSquare(uv, 0.2, square_pos, u_time);
+    // vec2 square_pos = vec2(0.1, 0.0);
+    // vec3 col = sdfSquare(uv, 0.2, square_pos, u_time);
+    // 
 
-    col = getBackgroundColor(uv);
+    vec3 col = drawScene(uv);
 
     gl_FragColor = vec4(col ,1.0);
 }
