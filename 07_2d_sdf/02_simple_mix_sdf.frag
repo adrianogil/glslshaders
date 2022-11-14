@@ -12,14 +12,12 @@ vec2 rotate(vec2 uv, float angle) {
     return mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * uv;
 }
 
-vec3 sdfSquare(vec2 uv, float size, vec2 center, float angle) {
+float sdfSquare(vec2 uv, float size, vec2 center, float angle) {
 
     float x = uv.x - center.x;
     float y = uv.y - center.y;
     vec2 rotated = rotate(vec2(x, y), angle);
-    float d = max(abs(rotated.x), abs(rotated.y)) - size;
-
-    return d > 0. ? vec3(1.) : vec3(1., 0., 0.);
+    return max(abs(rotated.x), abs(rotated.y)) - size;
 }
 
 float sdfCircle(vec2 uv, float r, vec2 center) {
@@ -41,10 +39,15 @@ vec3 drawScene(vec2 uv) {
   vec3 col = backgroundColor;
   
   float circle = sdfCircle(uv, 0.1, vec2(0, 0));
-  float circleBorder = 0.01;
+  float circleBorder = 0.009;
   vec3 circleColor = circle > - circleBorder? vec3(0, 0, 0) : vec3(0, 0, 1);
+
+  float square = sdfSquare(uv, 0.07, vec2(0.1, 0.), 0.);
+  float squareBorder = 0.009;
+  vec3 squareColor = square > - squareBorder? vec3(0., 0., 0.) :  vec3(1, 0, 0);
   
   col = mix(circleColor, col, step(0., circle));
+  col = mix(squareColor, col, step(0., square));
   
   return col;
 }
