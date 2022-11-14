@@ -12,10 +12,10 @@ vec2 rotate(vec2 uv, float angle) {
     return mat2(cos(angle), sin(angle), -sin(angle), cos(angle)) * uv;
 }
 
-vec3 sdfSquare(vec2 uv, float size, vec2 offset, float angle) {
+vec3 sdfSquare(vec2 uv, float size, vec2 center, float angle) {
 
-    float x = uv.x - offset.x;
-    float y = uv.y - offset.y;
+    float x = uv.x - center.x;
+    float y = uv.y - center.y;
     vec2 rotated = rotate(vec2(x, y), angle);
     float d = max(abs(rotated.x), abs(rotated.y)) - size;
 
@@ -29,8 +29,8 @@ void main(void) {
     // Adjust for screen aspect ratio
     uv.x *= scale * u_resolution.x / u_resolution.y;
     
-    vec2 offset = vec2(0.1, 0.0);
-    vec3 col = sdfSquare(uv, 0.2, offset, u_time);
+    vec2 square_pos = vec2(0.1, 0.0);
+    vec3 col = sdfSquare(uv, 0.2, square_pos, u_time);
 
     gl_FragColor = vec4(col ,1.0);
 }
