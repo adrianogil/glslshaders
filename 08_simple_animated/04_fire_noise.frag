@@ -6,20 +6,19 @@ uniform float u_time;
 uniform vec2 u_mouse;
 uniform vec2 u_resolution;
 
-void main(){
-    vec2 st = gl_FragCoord.xy/u_resolution.xy;
-    vec3 color = vec3(0.0);
+float rand(vec2 n) {  
+    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
+}
 
-    // Gradient colors
-    vec3 topColor = vec3(1.0,0.0,0.0);
-    vec3 bottomColor = vec3(0.0,0.0,1.0);
+void main() {
+    vec2 position = (gl_FragCoord.xy / u_resolution.xy) - vec2(0.5);
+    float strength = 1.0 - sqrt(dot(position, position));
+    strength = pow(strength, 3.0);
 
-    // Interpolate between the two colors based on y position
-    color = mix(bottomColor, topColor, st.y);
+    vec3 color = vec3(1.5, 0.2, 0.0) * strength;
 
-    // Add a sin wave over time and space
-    float wave = sin(st.y * 20.0 + u_time * 2.0);
-    color += vec3(wave, wave, wave);
+    float noise = rand(vec2(u_time, position.y * 50.0)) * strength;
+    color += noise * vec3(2.0, 1.0, 0.0);
 
-    gl_FragColor = vec4(color,1.0);
+    gl_FragColor = vec4(color, 1.0);
 }
