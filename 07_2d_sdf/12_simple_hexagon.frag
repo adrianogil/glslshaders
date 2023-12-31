@@ -7,8 +7,9 @@ uniform float u_time;
 uniform vec2 u_mouse;
 uniform vec2 u_resolution;
 
-float sdfHexagon(in vec2 p){
-    const float hexSize = .15;
+float sdfHexagon(in vec2 p, in vec2 c, in float size){
+    p  -= c;
+    float hexSize = 0.15 * size;
     const vec2 s = vec2(1, 1.7320508);
     
     p = abs(p);
@@ -27,7 +28,7 @@ vec3 drawScene(vec2 uv) {
     vec3 backgroundColor = getBackgroundColor(uv);
     vec3 col = backgroundColor;
 
-    float hexagon_value = sdfHexagon(uv);
+    float hexagon_value = sdfHexagon(uv, vec2(0.0, 0.0), 0.8);
 
     float res;
     res = hexagon_value;
