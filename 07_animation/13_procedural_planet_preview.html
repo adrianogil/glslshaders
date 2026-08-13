@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Chromatic Fault Shader Preview</title>
+    <title>Procedural Planet Shader Preview</title>
     <style>
       html,
       body {
         margin: 0;
         min-height: 100%;
         overflow: hidden;
-        background: #04020c;
+        background: #020411;
       }
 
       canvas {
@@ -24,7 +24,10 @@
     <canvas id="shader-canvas"></canvas>
     <script type="module">
       const canvas = document.querySelector("#shader-canvas");
-      const gl = canvas.getContext("webgl");
+      const gl = canvas.getContext("webgl", {
+        antialias: false,
+        powerPreference: "high-performance",
+      });
 
       if (!gl) {
         throw new Error("WebGL is not available in this browser.");
@@ -38,13 +41,15 @@
         }
       `;
 
-      const fragmentSource = await fetch("./13_chromatic_fault.frag").then((response) => {
-        if (!response.ok) {
-          throw new Error("Unable to load shader source.");
-        }
+      const fragmentSource = await fetch("./13_procedural_planet.frag").then(
+        (response) => {
+          if (!response.ok) {
+            throw new Error("Unable to load shader source.");
+          }
 
-        return response.text();
-      });
+          return response.text();
+        },
+      );
 
       const program = createProgram(vertexSource, fragmentSource);
       const positionLocation = gl.getAttribLocation(program, "a_position");
@@ -92,7 +97,7 @@
       }
 
       function resize() {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
         const width = Math.floor(window.innerWidth * dpr);
         const height = Math.floor(window.innerHeight * dpr);
 
@@ -104,7 +109,17 @@
         gl.viewport(0, 0, canvas.width, canvas.height);
       }
 
+      const frameInterval = 1000 / 30;
+      let previousFrame = -frameInterval;
+
       function render(timestamp) {
+        requestAnimationFrame(render);
+
+        if (timestamp - previousFrame < frameInterval) {
+          return;
+        }
+
+        previousFrame = timestamp - ((timestamp - previousFrame) % frameInterval);
         resize();
         gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -113,7 +128,6 @@
         gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
         gl.uniform1f(timeLocation, timestamp * 0.001);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
-        requestAnimationFrame(render);
       }
 
       requestAnimationFrame(render);
