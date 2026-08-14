@@ -26,13 +26,14 @@ float sdRoundBox(vec3 p, vec3 b, float radius) {
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - radius;
 }
 
-float sdRoundBox2D(vec2 p, vec2 b, float radius) {
-    vec2 q = abs(p) - b + radius;
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-}
-
 vec2 unite(vec2 a, vec2 b) {
     return a.x < b.x ? a : b;
+}
+
+mat2 rotate(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat2(c, -s, s, c);
 }
 
 // Starting from the solved board, these legal blank moves create the puzzle.
@@ -169,53 +170,108 @@ float softShadow(vec3 origin, vec3 direction) {
     return clamp(shade, 0.16, 1.0);
 }
 
-bool segmentEnabled(int digit, int segment) {
-    if (segment == 0) return digit != 1 && digit != 4;
-    if (segment == 1) return digit != 5 && digit != 6;
-    if (segment == 2) return digit != 2;
-    if (segment == 3) return digit != 1 && digit != 4 && digit != 7;
-    if (segment == 4) return digit == 0 || digit == 2 || digit == 6 || digit == 8;
-    if (segment == 5) return digit != 1 && digit != 2 && digit != 3 && digit != 7;
-    return digit != 0 && digit != 1 && digit != 7;
-}
-
-float digitDistance(vec2 p, int digit) {
-    float distanceToDigit = 10.0;
-
-    for (int segment = 0; segment < 7; ++segment) {
-        if (segmentEnabled(digit, segment)) {
-            vec2 center = vec2(0.0);
-            vec2 halfSize = vec2(0.105, 0.025);
-            if (segment == 0) center.y = 0.27;
-            if (segment == 3) center.y = -0.27;
-            if (segment == 6) center.y = 0.0;
-            if (segment == 1 || segment == 2 || segment == 4 || segment == 5) {
-                center.x = (segment == 1 || segment == 2) ? 0.13 : -0.13;
-                center.y = (segment == 1 || segment == 5) ? 0.135 : -0.135;
-                halfSize = vec2(0.025, 0.105);
-            }
-            distanceToDigit = min(distanceToDigit, sdRoundBox2D(p - center, halfSize, 0.018));
-        }
-    }
-
-    return distanceToDigit;
-}
-
-float numberMask(vec2 p, int number) {
-    float distanceToNumber;
-    if (number < 10) {
-        distanceToNumber = digitDistance(p, number);
-    } else {
-        vec2 left = (p - vec2(-0.17, 0.0)) / vec2(0.78, 1.0);
-        vec2 right = (p - vec2(0.17, 0.0)) / vec2(0.78, 1.0);
-        distanceToNumber = min(digitDistance(left, 1), digitDistance(right, number - 10));
-    }
-    return 1.0 - smoothstep(0.018, 0.045, distanceToNumber);
-}
-
 vec3 tilePalette(int tileIndex) {
     float hue = float(tileIndex) / 15.0;
     return 0.54 + 0.22 * cos(6.2831853 * (hue + vec3(0.02, 0.68, 0.42)));
+}
+
+float sdSphere(vec3 p, float radius) {
+    return length(p) - radius;
+}
+
+float sdTorus(vec3 p, vec2 radii) {
+    vec2 q = vec2(length(p.xz) - radii.x, p.y);
+    return length(q) - radii.y;
+}
+
+float sdOctahedron(vec3 p, float size) {
+    p = abs(p);
+    return (p.x + p.y + p.z - size) * 0.57735027;
+}
+
+vec2 miniUnite(vec2 a, float distanceToShape, float material) {
+    return distanceToShape < a.x ? vec2(distanceToShape, material) : a;
+}
+
+// One miniature SDF world is shared by every tile. Each tile samples a fixed
+// sixteenth of its view, so solving the puzzle reconstructs a single portal.
+vec2 portalScene(vec3 p) {
+    vec2 result = vec2(p.y + 0.72, 0.0);
+
+    // A ringed world anchors the continuous image across the central tiles.
+    vec3 planet = p - vec3(0.0, 0.02, 0.22);
+    result = miniUnite(result, sdSphere(planet, 0.58), 1.0);
+    vec3 ring = planet;
+    ring.yz = rotate(-0.48) * ring.yz;
+    result = miniUnite(result, sdTorus(ring, vec2(0.82, 0.055)), 2.0);
+
+    // Distant monuments and crystals make the outer fragments recognizable.
+    vec3 leftTower = p - vec3(-1.02, -0.24, 0.36);
+    leftTower.xz = rotate(0.16) * leftTower.xz;
+    result = miniUnite(result, sdRoundBox(leftTower, vec3(0.18, 0.49, 0.18), 0.035), 3.0);
+    result = miniUnite(result, sdOctahedron(p - vec3(-1.02, 0.42, 0.36), 0.25), 2.0);
+
+    vec3 rightTower = p - vec3(1.02, -0.32, 0.42);
+    rightTower.xz = rotate(-0.14) * rightTower.xz;
+    result = miniUnite(result, sdRoundBox(rightTower, vec3(0.21, 0.40, 0.21), 0.035), 3.0);
+    result = miniUnite(result, sdOctahedron(p - vec3(1.02, 0.22, 0.42), 0.28), 2.0);
+
+    // Satellites move through multiple fragments without changing the mapping.
+    float orbit = u_time * 0.55;
+    vec3 satelliteA = vec3(cos(orbit) * 1.12, 0.45 + sin(orbit * 0.7) * 0.18, 0.18 + sin(orbit) * 0.36);
+    vec3 satelliteB = vec3(cos(orbit + 3.1) * 1.35, -0.02, 0.45 + sin(orbit + 3.1) * 0.25);
+    result = miniUnite(result, sdSphere(p - satelliteA, 0.13), 2.0);
+    result = miniUnite(result, sdSphere(p - satelliteB, 0.09), 2.0);
+
+    return result;
+}
+
+vec3 portalNormal(vec3 p) {
+    const vec2 e = vec2(0.004, -0.004);
+    return normalize(
+        e.xyy * portalScene(p + e.xyy).x +
+        e.yyx * portalScene(p + e.yyx).x +
+        e.yxy * portalScene(p + e.yxy).x +
+        e.xxx * portalScene(p + e.xxx).x
+    );
+}
+
+vec3 portalSceneColor(vec2 uv) {
+    vec3 origin = vec3(0.0, 0.30, -3.0);
+    vec3 direction = normalize(vec3(uv.x * 0.86, uv.y * 0.78 - 0.13, 1.75));
+    float travelled = 0.0;
+    vec2 sample = vec2(0.0);
+
+    for (int step = 0; step < 40; ++step) {
+        sample = portalScene(origin + direction * travelled);
+        if (sample.x < 0.005 || travelled > 6.0) break;
+        travelled += sample.x * 0.82;
+    }
+
+    vec3 palette = vec3(0.30, 0.72, 0.94);
+    vec3 color = mix(vec3(0.012, 0.018, 0.055), vec3(0.18, 0.08, 0.30), uv.y * 0.5 + 0.5);
+
+    if (travelled <= 6.0) {
+        vec3 position = origin + direction * travelled;
+        vec3 normal = portalNormal(position);
+        vec3 lightDirection = normalize(vec3(-0.65, 0.85, -0.55));
+        float diffuse = max(dot(normal, lightDirection), 0.0);
+        float rim = pow(1.0 - max(dot(normal, -direction), 0.0), 2.5);
+        vec3 objectColor = palette;
+
+        if (sample.y < 0.5) {
+            float grid = 0.5 + 0.5 * sin(position.x * 8.0) * sin(position.z * 8.0);
+            objectColor = mix(vec3(0.025, 0.04, 0.07), palette * 0.26, grid * 0.35);
+        } else if (sample.y > 2.5) {
+            objectColor = vec3(0.006, 0.008, 0.018);
+        } else if (sample.y > 1.5) {
+            objectColor = vec3(1.0, 0.34, 0.62);
+        }
+
+        color = objectColor * (0.20 + diffuse * 0.90) + rim * palette * 0.42;
+    }
+
+    return color;
 }
 
 vec3 materialColor(float material, vec3 position, vec3 normal) {
@@ -232,19 +288,21 @@ vec3 materialColor(float material, vec3 position, vec3 normal) {
     }
 
     int tileIndex = int(floor(material - MATERIAL_TILE_BASE + 0.5));
-    vec3 color = tilePalette(tileIndex);
+    vec3 palette = tilePalette(tileIndex);
+    vec3 color = palette * 0.16 + vec3(0.025, 0.035, 0.055);
     vec3 local = position - tileCenter(tileIndex);
     if (normal.y > 0.72) {
-        float numeral = numberMask(vec2(local.x, -local.z), tileIndex + 1);
-        color = mix(color, vec3(0.025, 0.035, 0.055), numeral * 0.92);
+        float column = mod(float(tileIndex), 4.0);
+        float row = floor(float(tileIndex) / 4.0);
+        vec2 fragmentUv = vec2(local.x, local.z) / 0.30;
+        vec2 portalUv = (vec2(column, row) + fragmentUv * 0.5 + 0.5) / 4.0;
+        portalUv = portalUv * 2.0 - 1.0;
+        float edge = max(abs(local.x), abs(local.z));
+        float portalMask = 1.0 - smoothstep(0.292, 0.315, edge);
+        vec3 portalColor = portalSceneColor(portalUv);
+        color = mix(color, portalColor, portalMask);
     }
     return color;
-}
-
-mat2 rotate(float angle) {
-    float c = cos(angle);
-    float s = sin(angle);
-    return mat2(c, -s, s, c);
 }
 
 void main(void) {
