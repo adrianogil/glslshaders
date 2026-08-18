@@ -19,3 +19,23 @@ Run the dependency-free naming and reference check from the repository root:
 ```sh
 python3 scripts/validate_naming.py
 ```
+
+The hinged-square study also includes a discrete geometry/colour check:
+
+```sh
+node scripts/validate_hinged_square_coloring.mjs
+```
+
+## Local previews
+
+Preview pages load their paired shader with `fetch`, so serve the repository
+instead of opening the HTML directly. For example:
+
+```sh
+python3 -m http.server 8000
+```
+
+Then open `/07_animation/14_hinged_square_map_coloring_preview.html`. Its
+30-second loop contains five unfoldings. Press Space to pause, use the arrow
+keys to scrub, and press 0–4 for the final, hinge, parity, colour-index, and
+seam-ownership views.
