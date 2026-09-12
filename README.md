@@ -40,7 +40,112 @@ Then open `/07_animation/14_hinged_square_map_coloring_preview.html`. Its
 keys to scrub, and press 0–4 for the final, hinge, parity, colour-index, and
 seam-ownership views.
 
-## Controllable neural 3D eye
+## Full-image neural eye (corrected implementation)
+
+[11_full_neural_eye.frag](03_raymarching/11_full_neural_eye.frag) is a **whole-image
+neural renderer**, unlike the older hybrid material study below. Its entire
+scene output is:
+
+```glsl
+fragColor = vec4(neuralFullEye(p, eyeConditions()), 1.);
+```
+
+Every pixel, every frame, goes through the trained network. This includes the
+globe silhouette, corneal bulge, pupil, iris, lighting, reflections, floor shadow,
+and background. There is no analytic eye renderer, mask, material atlas,
+procedural detail, texture, or image/animation cache in the deployed shader.
+
+[Open the full-neural preview](http://127.0.0.1:8766/03_raymarching/11_full_neural_eye_preview.html)
+after starting the local server described below. This page fetches only the new
+shader for rendering; the old teacher and material pass are not loaded.
+
+### Shadertoy setup: one Image pass
+
+Paste the entire `11_full_neural_eye.frag` into **Image**. Leave all channels
+empty; no Buffer or Common tab is needed. The weights are inline.
+
+- Default: a ten-second oblique orbit and pupil breathing, both neural inputs.
+- Hold and drag: horizontal position controls yaw; vertical controls dilation.
+- Release: resume the orbit.
+- Set `IRIS_HUE` near the top of the shader to control the learned iris hue.
+- The local preview additionally exposes hue as a live slider, plus view/pupil
+  sliders, arrow keys, pause/reset and render resolution. These controls change
+  only the network inputs, not the image shading.
+
+This is a Shadertoy-compatible source and a tested local WebGL host; it has not
+been uploaded to or executed on shadertoy.com.
+
+### What was actually trained
+
+A new **28,899-parameter** `6→96→96→96→96→3` SIREN-style network learns final,
+display-space RGB from screen x/y, normalized yaw, pupil dilation and periodic
+hue encoding. The final linear output is clamped to [0,1]. No eye-specific
+geometry features enter the network. Animation maps time to yaw/pupil inputs.
+
+The older renderer serves strictly as an **offline image teacher**. We captured
+384 continuously varied control states at 256×256, selected 3,145,728 training
+pixel/condition pairs, and trained for 12,000 Adam updates followed by 24,000
+lower-learning-rate updates (batch size 2,048). Half the selected pixels are
+globally uniform and half concentrate on the eye area; this is training sampling,
+not a runtime mask. Twenty separate continuous control states are held out of
+the training loss.
+
+Recorded held-out display-RGB PSNR: **37.53 dB** full image, **34.64 dB** mean
+eye-region box, and **33.03 dB** worst eye-region box. These compare this model
+to this offline teacher, not to photographs or an anatomically calibrated eye.
+See [unretouched teacher/neural comparisons](03_raymarching/full_neural_eye_comparison.png),
+[training metadata](03_raymarching/full_neural_eye_model.json), and the
+[reproducible training/export pipeline](scripts/full_eye/train.py).
+
+The learned view family is bounded: yaw 32–76°, fixed pitch −5°, pupil/hue
+0–1. This is a conditional image representation of a 3D eye, **not** a neural
+SDF or an arbitrary-camera 3D field. Fine iris fibers remain softer than the
+teacher, and subtle approximation artifacts can remain on moving boundaries
+or the background. Wide/tall viewports extend the learned background by
+clamping input coordinates at the trained screen-domain edges. Full-image
+inference is substantially more expensive than the old cached material; use
+a lower render width on slower GPUs. The preview displays observed presentation
+cadence, not a controlled GPU benchmark.
+
+### Full-neural validation and reproduction
+
+```sh
+python3 scripts/validate_naming.py
+node scripts/validate_full_neural_eye.mjs
+node --check 03_raymarching/full_neural_eye_runtime.mjs
+```
+
+The validator rejects runtime textures, analytic eye geometry, optics, or
+procedural RGB blending; verifies checkpoint/export/fixture hashes; and compiles
+both the standalone Shadertoy source and preview variant with `glslangValidator`.
+The preview's GPU checks compare 128 RGB probes against PyTorch and exercise
+view, pupil, hue, time and standard Shadertoy mouse controls. A GPU ablation
+replaces the network output with zero and verifies that **the entire image
+becomes black**, including its background.
+
+The [recorded GPU verification](03_raymarching/full_neural_eye_validation.json)
+passes all 11 checks on ANGLE Metal / AMD Radeon Pro 5300M. Maximum RGB
+disagreement with PyTorch is `9.24e-7`; the ten-second loop matches exactly.
+Recorded hashes tie that result to the shipped shader, host and probe fixture.
+
+To reproduce training, use Python with `torch`, `numpy`, and `Pillow`, plus
+macOS `clang++`/OpenGL for the offline teacher capture:
+
+```sh
+python scripts/full_eye/train.py capture --states 384 --resolution 256
+python scripts/full_eye/train.py train --steps 12000 --checkpoint-every 3000 --threads 4 --width 96 --depth 4 --batch 2048 --name full_eye
+python scripts/full_eye/train.py train --steps 24000 --checkpoint-every 6000 --threads 4 --width 96 --depth 4 --batch 2048 --lr .00004 --end-lr .000005 --resume scripts/full_eye/work/full_eye.pt --name full_eye_refined
+python scripts/full_eye/train.py deliver --name full_eye_refined
+```
+
+The trained checkpoint is also included at `scripts/full_eye/full_neural_eye.pt`.
+Generated capture/training scratch files stay ignored under `scripts/full_eye/work/`.
+
+## Older hybrid neural iris material (09–10)
+
+**This older experiment does not render the whole eye with a network.** Its
+geometry, lighting and animation are conventional rendering. Use shader 11
+above for the corrected full-image neural implementation.
 
 The standalone eye uses a real spherical globe, a bulging refractive corneal
 cap, a recessed iris, and an open pupil. It preserves the accepted visual study

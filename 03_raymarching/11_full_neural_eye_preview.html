@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Full neural eye · Every pixel learned</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#0b1116;color:#e4ebee}
+*{box-sizing:border-box}body{margin:0}main{max-width:1120px;margin:auto;padding:26px 28px 42px}
+header{display:flex;justify-content:space-between;align-items:center;gap:18px}h1{font-size:24px;letter-spacing:-.8px;margin:8px 0}p{color:#94a8b2;line-height:1.6;font-size:14px}
+.eyebrow{font-size:10px;letter-spacing:2.4px;color:#80cdc5;text-transform:uppercase}.badge{border:1px solid #305453;color:#9dd7ca;border-radius:99px;padding:8px 12px;white-space:nowrap;font-size:11px}
+.stage{margin-top:20px;border:1px solid #26343e;border-radius:16px;overflow:hidden;background:#141e24;position:relative}
+canvas{display:block;width:100%;aspect-ratio:4/3;max-height:70vh;object-fit:contain;touch-action:none;outline-offset:-3px}
+.caption{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;background:#101920;border-top:1px solid #26343e;font-size:12px;color:#90a6b2}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:22px 0}.controls label{display:block;font-size:12px}.controls output{float:right;color:#8dd1c8;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:#8dd1c8;margin-top:14px}button,select{font:inherit;background:#15232c;border:1px solid #304652;color:#d5e4e9;border-radius:7px;padding:8px 12px;font-size:12px;cursor:pointer}
+button:hover{background:#203440}button:disabled{opacity:.5}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #9ef3dc;outline-offset:4px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.toolbar label{font-size:12px;color:#94a8b2}.status{font-size:12px;color:#8eb8b2;margin-left:auto}
+details{margin-top:25px;border-top:1px solid #26343e;padding-top:18px}summary{cursor:pointer;font-size:13px}a{color:#8dd1c8}code{font-size:12px}pre{overflow:auto;white-space:pre-wrap;font-size:11px;color:#adccd2}.error{color:#ffbfb4}
+@media(max-width:640px){main{padding:20px 14px}.badge{display:none}.controls{grid-template-columns:1fr;gap:14px}h1{font-size:21px}.status{width:100%;margin:8px 0 0}}
+</style>
+</head>
+<body><main>
+<header><div><div class="eyebrow">GLSL study 11 / full-image inference</div><h1>Every pixel comes from the network.</h1></div><span class="badge">One pass · No textures</span></header>
+<p>A conditional neural network reconstructs the complete 3D eye view: silhouette, iris, pupil, reflections, shading, and background. The procedural renderer was used only to make offline training images.</p>
+<section class="stage"><canvas id="eye" width="384" height="288" tabindex="0" aria-label="Full neural eye. Drag horizontally to change view and vertically to change pupil size. Arrow keys change the view and pupil."></canvas><div class="caption"><span id="mode">Compiling the full-image network…</span><span>Screen position + view + pupil + hue → learned RGB</span></div></section>
+<div class="controls">
+<label>View angle <output id="yawValue">48°</output><input id="yaw" type="range" min="0" max="1" step=".001" value=".365" aria-label="View angle"></label>
+<label>Pupil dilation <output id="pupilValue">35%</output><input id="pupil" type="range" min="0" max="1" step=".001" value=".35" aria-label="Pupil dilation"></label>
+<label>Iris hue <output id="hueValue">0.56</output><input id="hue" type="range" min="0" max="1" step=".001" value=".56" aria-label="Iris hue"></label>
+</div>
+<div class="toolbar"><button id="orbit" disabled>Pause orbit</button><button id="reset" disabled>Reset</button><label>Render width <select id="quality"><option value="256">256</option><option value="384" selected>384</option><option value="512">512</option><option value="768">768</option></select></label><span id="status" class="status" role="status">Loading weights…</span></div>
+<details><summary>What is neural, limits, and Shadertoy setup</summary>
+<p>The exported network directly returns the final RGB of every pixel. There is no analytic eye mask, ray intersection, lighting pass, pigment atlas, procedural detail, or cached animation in this preview. The learned function covers yaw 32–76°, fixed pitch −5°, pupil 0–1, and hue 0–1. It is a conditional image representation, not an unrestricted 3D field. Fine detail and moving boundaries can differ from the teacher.</p>
+<p>Paste <a href="11_full_neural_eye.frag">11_full_neural_eye.frag</a> into Shadertoy’s <b>Image</b> tab. Leave all channels empty. Drag horizontally for view and vertically for pupil; release to orbit. Set <code>IRIS_HUE</code> near the top for hue. This local preview also exposes hue as a slider that changes the network input. Nothing has been uploaded to Shadertoy.</p>
+<p><a href="full_neural_eye_comparison.png">Offline teacher / neural comparisons</a> · <a href="full_neural_eye_model.json">Training and held-out metrics</a> · <a href="../scripts/full_eye/train.py">Training source</a></p>
+<button id="validate" disabled>Run GPU parity and controls checks</button><pre id="report"></pre>
+</details>
+</main>
+<script type="module">
+import {createRenderer,validate} from './full_neural_eye_runtime.mjs';
+const $=id=>document.getElementById(id),canvas=$('eye');
+let renderer,source,playing=true,manual=false,elapsed=0,last=performance.now(),frames=0,measured=performance.now(),busy=false;
+let controls=[.365,.35,.56,0];
+function labels(){['yaw','pupil','hue'].forEach((id,i)=>$(id).value=controls[i]);$('yawValue').textContent=(32+44*controls[0]).toFixed(1)+'°';$('pupilValue').textContent=Math.round(100*controls[1])+'%';$('hueValue').textContent=controls[2].toFixed(2);}
+function condition(){if(!manual){const p=2*Math.PI*(elapsed%10)/10;controls[0]=.46+.34*Math.sin(p);controls[1]=.40+.19*Math.sin(p+.8);}controls[3]=1;return controls;}
+function draw(){if(!renderer||busy)return;renderer.draw(elapsed,condition());labels();$('mode').textContent=manual?'Manual pose · neural RGB':'Ten-second oblique orbit · neural RGB';}
+function reset(){manual=false;playing=true;elapsed=0;controls=[.365,.35,.56,0];$('orbit').textContent='Pause orbit';draw();}
+function resize(){canvas.width=+$('quality').value;canvas.height=Math.round(canvas.width*.75);draw();}
+function setManual(){manual=true;playing=false;$('orbit').textContent='Resume orbit';}
+['yaw','pupil','hue'].forEach((id,i)=>$(id).addEventListener('input',()=>{controls[i]=+$(id).value;if(i<2)setManual();draw();}));
+$('orbit').addEventListener('click',()=>{if(manual){manual=false;playing=true;}else playing=!playing;$('orbit').textContent=playing?'Pause orbit':'Resume orbit';draw();});
+$('reset').addEventListener('click',reset);$('quality').addEventListener('change',resize);
+function drag(e){const r=canvas.getBoundingClientRect();controls[0]=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));controls[1]=Math.max(0,Math.min(1,1-(e.clientY-r.top)/r.height));setManual();draw();}
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);drag(e);});canvas.addEventListener('pointermove',e=>{if(canvas.hasPointerCapture(e.pointerId))drag(e);});
+canvas.addEventListener('keydown',e=>{const keys={ArrowLeft:[0,-.025],ArrowRight:[0,.025],ArrowDown:[1,-.025],ArrowUp:[1,.025]};if(!keys[e.key])return;e.preventDefault();const [i,d]=keys[e.key];controls[i]=Math.max(0,Math.min(1,controls[i]+d));setManual();draw();});
+$('validate').addEventListener('click',async()=>{busy=true;$('validate').disabled=true;$('report').textContent='Running full-network GPU checks…';try{const fixture=await fetch('./full_neural_eye_parity.json').then(r=>{if(!r.ok)throw Error(r.status);return r.json();});const result=await validate(renderer,canvas,fixture,source);$('report').textContent=JSON.stringify(result,null,2);$('status').textContent=result.passed?'GPU checks passed':'GPU checks FAILED';}catch(e){$('report').textContent=e.stack;}finally{busy=false;$('validate').disabled=false;draw();}});
+function frame(now){if(playing&&!busy)elapsed+=(now-last)/1000;last=now;if(playing&&!busy){draw();frames++;}if(now-measured>2000){if(!busy)$('status').textContent=(playing?(frames*1000/(now-measured)).toFixed(1)+' presentation frames/s':'Paused')+' · '+canvas.width+'×'+canvas.height;frames=0;measured=now;}requestAnimationFrame(frame);}
+try{const response=await fetch('./11_full_neural_eye.frag');if(!response.ok)throw Error('Shader load failed: '+response.status);source=await response.text();renderer=await createRenderer(canvas,source);['orbit','reset','validate'].forEach(id=>$(id).disabled=false);resize();$('status').textContent='Full-image network compiled';last=performance.now();requestAnimationFrame(frame);}catch(e){$('status').textContent=e.message;$('status').classList.add('error');$('mode').textContent='Unable to initialize';console.error(e);}
+</script>
+</body></html>

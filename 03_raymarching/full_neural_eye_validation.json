@@ -1,0 +1,44 @@
+{
+  "passed": true,
+  "checks": {
+    "pytorch_glsl_parity": true,
+    "visible_image": true,
+    "view_response": true,
+    "pupil_response": true,
+    "hue_response": true,
+    "loop_closed": true,
+    "animation_response": true,
+    "shadertoy_mouse_response": true,
+    "mouse_release_resumes_orbit": true,
+    "zero_network_removes_whole_image": true,
+    "no_gl_errors": true
+  },
+  "measurements": {
+    "parity_max": 9.238719940185547e-7,
+    "parity_mae": 6.19135486582915e-8,
+    "view_mae": 0.03811240468409586,
+    "pupil_mae": 0.012332039760348584,
+    "hue_mae": 0.018097154139433552,
+    "loop_mae": 0,
+    "animation_mae": 0.02644873366013072,
+    "mouse_mae": 0.03496943082788671
+  },
+  "probes": 128,
+  "renderer": "ANGLE (AMD, ANGLE Metal Renderer: AMD Radeon Pro 5300M, Unspecified Version)",
+  "gl_errors": [],
+  "captured_at": "2026-09-12T18:13:07.386Z",
+  "scope": "Local WebGL 2 execution of the exact Shadertoy network; not a shadertoy.com execution claim.",
+  "source_sha256": {
+    "11_full_neural_eye.frag": "b7399cc2e2bbde5dd47fc075b85d5e2f40abb42abf21b7ff46516d9e1339e1be",
+    "full_neural_eye_runtime.mjs": "d4752d5084bdfcf33e30c06877bd4b3ea82dd99caea5e37b064af03482aeea2b",
+    "11_full_neural_eye_preview.html": "5022c9c89c6fe63d99bc2d2bf480eb9d3bb593d772348c2393fe8a1ceff59e36",
+    "full_neural_eye_parity.json": "231ad00051f28586649589e029704da7e2371ab98396856e5cc15f0827e56ddc"
+  },
+  "console_warnings_or_errors_in_final_run": 0,
+  "console_scope": "Final dot-product export run only. Earlier experimental mat4 exports failed to link and are not shipped.",
+  "ui_checks": [
+    "Manual view 48.1 degrees, pupil 35%, hue 0.04: amber full-neural eye visually verified.",
+    "Default oblique animation visually verified.",
+    "Observed about 54–57 presentation frames/s at 384x288 on the AMD GPU, not a controlled GPU benchmark."
+  ]
+}

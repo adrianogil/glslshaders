@@ -1,0 +1,37 @@
+// FULL-IMAGE neural eye — standalone Shadertoy Image pass.
+// All scene RGB comes from the trained conditional network below, every pixel,
+// every frame. NO ray tracing, procedural eye shading, iris atlas or image cache.
+// No channels, textures, Buffer tabs, includes or model downloads are needed.
+// Drag: horizontal = view angle (32–76 degrees); vertical = pupil dilation.
+// Release to resume the ten-second orbit. Edit IRIS_HUE to change learned hue.
+// This is a learned image function over a bounded oblique view family, not a
+// neural SDF or an arbitrary-camera 3D model. Pitch is fixed at -5 degrees.
+// Training / holdout / export provenance: full_neural_eye_model.json.
+precision highp float;
+
+const float IRIS_HUE = 0.56;
+
+__NETWORK__
+
+vec3 eyeConditions() {
+  float phase=6.28318530718*mod(iTime,10.0)/10.0;
+  vec3 controls=vec3(.46+.34*sin(phase),.40+.19*sin(phase+.8),IRIS_HUE);
+  if(iMouse.z>0.) controls.xy=clamp(iMouse.xy/iResolution.xy,0.,1.);
+#ifdef FULL_EYE_LOCAL
+  // Preview controls only replace network INPUTS. They never shade pixels.
+  if(uControls.w>.5) controls.xy=uControls.xy;
+  controls.z=uControls.z;
+  if(uProbeMode==1) controls=uProbeControls;
+#endif
+  return controls;
+}
+void mainImage(out vec4 fragColor,in vec2 fragCoord) {
+  vec2 p=(2.*fragCoord-iResolution.xy)/min(iResolution.x,iResolution.y);
+  // Edge extension stays within the trained screen domain on very wide/tall
+  // viewports. Even these background pixels are produced by the network.
+  p=clamp(p,vec2(-1.4),vec2(1.4));
+#ifdef FULL_EYE_LOCAL
+  if(uProbeMode==1) p=uProbePosition;
+#endif
+  fragColor=vec4(neuralFullEye(p,eyeConditions()),1.);
+}
