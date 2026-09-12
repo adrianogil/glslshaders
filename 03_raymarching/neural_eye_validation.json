@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "checks": {
+    "finite_default": true,
+    "visible_geometry": true,
+    "oblique_mouse_view": true,
+    "pose_persists_after_release": true,
+    "pupil_control": true,
+    "pose_and_pupil_reuse_pigment": true,
+    "hue_rebakes_neural_pigment": true,
+    "cached_pigment_persists": true,
+    "cached_matches_fresh_decode": true,
+    "ten_second_loop": true,
+    "resume_orbit_button": true,
+    "sixteen_oblique_states_finite": true,
+    "resize_reinitializes_material": true,
+    "no_gl_errors": true
+  },
+  "measurements": {
+    "view_mae": 0.02038317534274999,
+    "pupil_mae": 0.0018353065720704469,
+    "hue_pigment_mae": 0.2104170345925413,
+    "loop_mae": 0
+  },
+  "states_checked": 16,
+  "resolutions_checked": [
+    [
+      256,
+      192
+    ],
+    [
+      64,
+      64
+    ],
+    [
+      390,
+      520
+    ],
+    [
+      640,
+      360
+    ]
+  ],
+  "gl_errors": [],
+  "readback": "RGBA32F",
+  "renderer": "ANGLE (Intel, ANGLE Metal Renderer: Intel(R) UHD Graphics 630, Unspecified Version)",
+  "captured_at": "2026-09-12T17:31:28.763Z",
+  "scope": "Local WebGL 2 Shadertoy-compatible host; not a published or hosted Shadertoy test. No FPS or photorealism claim.",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "source_sha256": {
+    "09_controllable_neural_eye.frag": "16c6dd1fc2b409a00028ab32f2fa39f6f64252dbc9d61ea973bee1f5246511b0",
+    "10_neural_iris_material.frag": "7112c03feae24baf3f5dcf956bb30ce61b43a7fe8f755b1e1cb60416854480cc"
+  },
+  "host_sha256": {
+    "neural_eye_runtime.mjs": "63bfe708402a2f09a341c90faf1898e324bfbdefd86629336cb9496da4025f8d",
+    "09_controllable_neural_eye_preview.html": "818c768b4eb1de056c10965643a5b62247b65bdb5fea44125aee7c14ce8dc247"
+  },
+  "console_warnings_or_errors": 0,
+  "ui_checks": {
+    "hue_slider": "Amber pigment verified visually",
+    "pupil_slider": "0.91 dilation verified via native keyboard input",
+    "pointer_drag": "Near-profile pose retained after release",
+    "pause_and_reset": "Verified",
+    "keyboard_pose": "ArrowRight handler exercised at 640-pixel render width",
+    "detail_widths": [
+      640,
+      960,
+      1440
+    ],
+    "portrait_viewport": [
+      390,
+      844
+    ],
+    "portrait_framing": "Full eyeball visible and controls wrap within the viewport"
+  },
+  "model_function_sha256": "01761925c263394e6dfa01167d46ec6ea1fa3a6abc8389f18a98bc3a5393892b"
+}

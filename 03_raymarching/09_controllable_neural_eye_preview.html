@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Controllable neural eye · GLSL studies</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {color-scheme:dark;font-family:system-ui,sans-serif;background:#09151b;color:#d7e3e6}
+    * {box-sizing:border-box} body {margin:0;padding:24px} main {max-width:1080px;margin:auto}
+    header {display:flex;justify-content:space-between;gap:24px;align-items:end;margin-bottom:18px}
+    h1 {font-size:clamp(24px,4vw,40px);font-weight:500;letter-spacing:-.04em;margin:4px 0}
+    .eyebrow {color:#85c9c6;font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+    .intro {font-size:13px;line-height:1.6;color:#92a9b4;max-width:300px}
+    canvas {display:block;width:100%;height:clamp(400px,64vh,720px);border:1px solid #29404a;border-radius:12px;touch-action:none;background:#0b171e}
+    .toolbar {display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:14px 0}
+    button,select {font:inherit;font-size:13px;border:1px solid #38515b;border-radius:6px;padding:7px 12px;background:#132831;color:#d7e3e6;cursor:pointer}
+    button:focus-visible,canvas:focus-visible,select:focus-visible,input:focus-visible {outline:2px solid #85c9c6;outline-offset:3px}
+    label {font-size:12px;color:#adc2ca} input {accent-color:#84c9c7;vertical-align:middle;max-width:120px}
+    #status,.hint,details {font-size:12px;color:#9eb4bd;line-height:1.7}
+    #status {margin-left:auto} .hint {margin:0 0 14px} details {border-top:1px solid #29404a;padding-top:12px}
+    summary {cursor:pointer} pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px}
+    a {color:#85c9c6} @media(max-width:600px) {body{padding:14px}header{display:block}.intro{margin:8px 0}canvas{height:520px}#status{width:100%;margin-left:0}}
+  </style>
+</head>
+<body>
+<main>
+  <header><div><span class="eyebrow">GLSL / neural material study</span><h1>An eye you can turn.</h1></div><div class="intro">A small neural iris inside a refractive 3D eye.<br>One material buffer. One image shader.</div></header>
+  <canvas id="eye" width="960" height="600" tabindex="0" aria-label="Interactive three-dimensional eye. Drag above the color bars to turn. Arrow keys adjust the view."></canvas>
+  <div class="toolbar">
+    <button id="play">Pause</button><button id="reset">Reset / orbit</button>
+    <label>Iris hue <input id="hue" type="range" min="0" max="1" step="0.01" value="0.56"></label>
+    <label>Pupil <input id="pupil" type="range" min="0" max="1" step="0.01" value="0.35"></label>
+    <label>Width <select id="quality"><option value="640">640</option><option value="960" selected>960</option><option value="1440">1440</option></select></label>
+    <span id="status" role="status">Compiling the neural material…</span>
+  </div>
+  <p class="hint">Drag the eye to hold a pose. In-canvas upper bar: hue · lower bar: pupil · small ring: resume orbit. The HTML sliders send the same mouse input as the shader-drawn bars.</p>
+  <details><summary>ShaderToy setup and validation</summary>
+    <p>Image: <a href="09_controllable_neural_eye.frag">09_controllable_neural_eye.frag</a>, channel 0 → Buffer A.<br>Buffer A: <a href="10_neural_iris_material.frag">10_neural_iris_material.frag</a>, channel 0 → Buffer A itself (feedback). No external textures. See the repository README for details. This preview is local; nothing has been uploaded.</p>
+    <button id="validate">Run GPU checks (resets eye)</button><pre id="validation-result">Checks not run yet.</pre>
+  </details>
+</main>
+<script type="module">
+import {createEyeRenderer,validateEye} from './neural_eye_runtime.mjs';
+const canvas=document.querySelector('#eye'),status=document.querySelector('#status');
+const play=document.querySelector('#play'),hue=document.querySelector('#hue'),pupil=document.querySelector('#pupil');
+const quality=document.querySelector('#quality'),result=document.querySelector('#validation-result');
+let renderer,playing=true,busy=false,stopped=false,time=0,previous,mouse=[0,0,0,0],activePointer=null;
+function fail(error){stopped=true;status.textContent=`Error: ${error.message}`;result.textContent=error.stack??String(error);console.error(error);}
+try {
+  const [imageSource,materialSource]=await Promise.all([
+    fetch('./09_controllable_neural_eye.frag').then(r=>{if(!r.ok)throw new Error('Image shader unavailable');return r.text();}),
+    fetch('./10_neural_iris_material.frag').then(r=>{if(!r.ok)throw new Error('Material shader unavailable');return r.text();}),
+  ]);
+  await new Promise(requestAnimationFrame);
+  renderer=createEyeRenderer(canvas,imageSource,materialSource);
+  function resize(){const r=canvas.getBoundingClientRect();const changed=renderer.resize(+quality.value,+quality.value*r.height/r.width);if(changed)mouse=[0,0,0,0];return changed;}
+  function sync(){const c=renderer.controls();hue.value=c[2].toFixed(2);pupil.value=c[1].toFixed(2);}
+  function draw(readControls=false){if(busy||stopped)return;if(resize()){readControls=true;status.textContent=`WebGL 2 · ${canvas.width} × ${canvas.height} · neural material cached`;}renderer.draw(time,mouse);if(readControls)sync();}
+  function synthetic(x,y){if(busy||stopped)return;const w=canvas.width,h=canvas.height;renderer.draw(time,[x*w,y*h,Math.max(.5,x*w),Math.max(.5,y*h)]);mouse=[x*w,y*h,-Math.max(.5,x*w),-Math.max(.5,y*h)];renderer.draw(time,mouse);sync();}
+  function reset(){time=0;mouse=[0,0,0,0];renderer.reset();draw(true);}
+  function point(e){const r=canvas.getBoundingClientRect();return [Math.max(.5,Math.min(canvas.width-.5,(e.clientX-r.left)*canvas.width/r.width)),Math.max(.5,Math.min(canvas.height-.5,(r.bottom-e.clientY)*canvas.height/r.height))];}
+  canvas.addEventListener('pointerdown',e=>{if(activePointer!==null||busy||stopped)return;activePointer=e.pointerId;canvas.setPointerCapture(e.pointerId);canvas.focus();const p=point(e);mouse=[...p,...p];draw(true);});
+  canvas.addEventListener('pointermove',e=>{if(e.pointerId!==activePointer)return;const p=point(e);mouse=[...p,mouse[2],mouse[3]];draw(true);});
+  function release(e){if(e.pointerId!==activePointer)return;activePointer=null;mouse[2]=-Math.abs(mouse[2]);mouse[3]=-Math.abs(mouse[3]);draw(true);}
+  canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);canvas.addEventListener('lostpointercapture',release);
+  canvas.addEventListener('keydown',e=>{if(busy||stopped)return;const c=renderer.controls();if(e.key.startsWith('Arrow')){e.preventDefault();const dx=e.key==='ArrowRight'?.035:e.key==='ArrowLeft'?-.035:0,dy=e.key==='ArrowUp'?.035:e.key==='ArrowDown'?-.035:0;synthetic(Math.max(.001,Math.min(.999,c[0]+dx)),.22+.78*Math.max(0,Math.min(1,c[3]+dy)));}if(e.key===' '){e.preventDefault();play.click();}});
+  hue.addEventListener('input',()=>synthetic(.15+.70*(+hue.value),.15));
+  pupil.addEventListener('input',()=>synthetic(.15+.70*(+pupil.value),.07));
+  play.onclick=()=>{playing=!playing;play.textContent=playing?'Pause':'Play';};
+  document.querySelector('#reset').onclick=reset;quality.onchange=()=>{draw();status.textContent=`WebGL 2 · ${canvas.width} × ${canvas.height} · neural material cached`;};
+  canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();stopped=true;status.textContent='Graphics context lost. Reload to restore.';});
+  addEventListener('pagehide',()=>{stopped=true;renderer.dispose();},{once:true});
+  document.querySelector('#validate').onclick=async()=>{
+    if(busy||stopped)return;busy=true;status.textContent='Checking shader feedback, controls, and orbit…';
+    try{await new Promise(requestAnimationFrame);const checks=validateEye(renderer);checks.user_agent=navigator.userAgent;checks.source_sha256={};for(const [name,source] of [['09_controllable_neural_eye.frag',imageSource],['10_neural_iris_material.frag',materialSource]]){checks.source_sha256[name]=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(source))),byte=>byte.toString(16).padStart(2,'0')).join('');}result.textContent=JSON.stringify(checks,null,2);result.dataset.passed=String(checks.passed);status.textContent=checks.passed?`GPU checks passed · ${Object.keys(checks.checks).length} checks`:'GPU validation failed — see details';}
+    catch(e){fail(e);}finally{busy=false;reset();previous=undefined;}
+  };
+  resize();renderer.draw(0);sync();status.textContent=`WebGL 2 · ${canvas.width} × ${canvas.height} · neural material cached`;
+  function animate(now){if(stopped)return;if(!busy){if(previous!==undefined&&playing)time=(time+Math.min((now-previous)/1000,.1))%10;draw();}previous=now;requestAnimationFrame(animate);}
+  requestAnimationFrame(animate);
+}catch(error){fail(error);}
+</script>
+</body>
+</html>
