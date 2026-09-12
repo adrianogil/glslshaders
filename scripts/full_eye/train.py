@@ -253,7 +253,9 @@ def deliver(label):
     stages=[]
     def history(item):
         resume=item['arguments'].get('resume')
-        if resume:
+        if 'previous_stages' in item:
+            stages.extend(item['previous_stages'])
+        elif resume:
             path=Path(resume)
             if not path.is_absolute():path=ROOT/path
             if path.is_file():history(torch.load(path,map_location='cpu'))

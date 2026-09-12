@@ -7,6 +7,7 @@ import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {header,footer} from '../03_raymarching/full_neural_eye_runtime.mjs';
+import {graphSignature} from '../03_raymarching/full_neural_eye_benchmark.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const scene=join(root,'03_raymarching');
 const file=join(scene,'11_full_neural_eye.frag'),source=readFileSync(file,'utf8');
@@ -18,6 +19,38 @@ assert.equal(hash(join(root,'scripts/full_eye/train.py')),metadata.training_sour
 assert.equal(hash(join(scene,'full_neural_eye_parity.json')),metadata.parity_fixture_sha256);
 assert.equal(hash(join(scene,'full_neural_eye_comparison.png')),metadata.comparison_sha256);
 assert.deepEqual(metadata.architecture,[6,96,96,96,96,3]);assert.equal(metadata.parameter_count,28899);
+const quality=JSON.parse(readFileSync(join(scene,'full_neural_eye_quality.json'),'utf8'));
+assert.equal(quality.source_sha256,hash(join(root,'scripts/full_eye/refine_quality.py')));
+assert.equal(quality.baseline_shader_sha256,hash(join(scene,'full_neural_eye_baseline.txt')));
+assert.equal(graphSignature(source),graphSignature(readFileSync(join(scene,'full_neural_eye_baseline.txt'),'utf8')),
+  'Quality refinement must change weight literals only, not the per-pixel execution graph.');
+const baseline=readFileSync(join(scene,'full_neural_eye_baseline.txt'),'utf8');
+const outsideNetwork=s=>s.replace(/\/\/ BEGIN TRAINED FULL-IMAGE NETWORK[\s\S]*?\/\/ END TRAINED FULL-IMAGE NETWORK/,'__NETWORK__');
+assert.equal(outsideNetwork(source),outsideNetwork(baseline),'Camera framing, controls and direct RGB output must be byte-identical.');
+assert.deepEqual(source.match(/  vec4 x[01]=[^\n]+/g),baseline.match(/  vec4 x[01]=[^\n]+/g),'Input encoding must be unchanged.');
+assert.deepEqual(quality,metadata.quality_refinement);
+const fresh=quality.independent_test.comparison;
+assert.equal(fresh.states_count,64);assert.equal(quality.independent_test.manifest.random_states,24);
+assert.equal(quality.independent_test.manifest.orbit_states,40);
+for(const key of ['mse','eye_mse','iris_mse','edge_mse','gradient_mse','sclera_mse']){
+  assert.ok(fresh.after_before_mse_ratio[key]<1,`Fresh test regression in ${key}`);
+  assert.ok(Math.abs(fresh.after[key]/fresh.before[key]-fresh.after_before_mse_ratio[key])<1e-12);
+}
+assert.ok(fresh.temporal.after_before_ratio<1,'Temporal reconstruction must also improve.');
+assert.equal(fresh.after_weights_sha256,quality.comparison.after_weights_sha256);
+const timing=JSON.parse(readFileSync(join(scene,'full_neural_eye_performance.json'),'utf8'));
+assert.equal(timing.passed,true);assert.equal(timing.identical_execution_graph,true);
+assert.equal(timing.samples_per_model_per_resolution,48);assert.equal(timing.draws_per_sample,8);
+const median=a=>{const s=[...a].sort((a,b)=>a-b);return(s[(s.length-1)>>1]+s[s.length>>1])/2;};
+for(const r of timing.results){
+  for(const name of ['before','after']){
+    assert.equal(r.samples_ms[name].length,48);assert.ok(r.samples_ms[name].every(v=>Number.isFinite(v)&&v>0));
+    assert.ok(Math.abs(median(r.samples_ms[name])-r[name+'_median_ms'])<1e-10);
+  }
+  assert.ok(r.after_before_ratio<=1.05&&r.paired_ratio_median<=1.05,'Measured performance regression.');
+  assert.ok(Math.abs(r.after_median_ms/r.before_median_ms-r.after_before_ratio)<1e-12);
+}
+for(const [name,digest] of Object.entries(timing.source_sha256))assert.equal(hash(join(scene,name)),digest,`Stale performance evidence: ${name}`);
 const code=source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/[^\n]*/g,'');
 assert.ok(!/texture|texelFetch|sampler|iChannel|refract|reflect|smoothstep|sphereRoots|irisPigment|scene\(/.test(code),
   'No textures, caches, analytic eye geometry, material or optical renderer may enter the full-neural runtime.');
@@ -51,4 +84,4 @@ try {
     console.log('GLSL ES 3.00 compilation passed: '+name);
   }
 }finally{generated.forEach(p=>unlinkSync(p));rmdirSync(temporary);}
-console.log('Full-image neural-only render path, trained weights, 128 parity fixtures, and held-out accuracy checks passed.');
+console.log('Full-neural render path, identical execution graph, 128 GPU probes, 64 fresh quality states, and paired GPU performance evidence passed.');

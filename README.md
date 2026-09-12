@@ -90,8 +90,9 @@ globally uniform and half concentrate on the eye area; this is training sampling
 not a runtime mask. Twenty separate continuous control states are held out of
 the training loss.
 
-Recorded held-out display-RGB PSNR: **37.53 dB** full image, **34.64 dB** mean
-eye-region box, and **33.03 dB** worst eye-region box. These compare this model
+After weight-only quality refinement, recorded held-out display-RGB PSNR is
+**38.57 dB** full image, **35.77 dB** mean eye-region box, and **34.14 dB** worst
+eye-region box (previously 37.53 / 34.64 / 33.03 dB). These compare this model
 to this offline teacher, not to photographs or an anatomically calibrated eye.
 See [unretouched teacher/neural comparisons](03_raymarching/full_neural_eye_comparison.png),
 [training metadata](03_raymarching/full_neural_eye_model.json), and the
@@ -106,6 +107,53 @@ clamping input coordinates at the trained screen-domain edges. Full-image
 inference is substantially more expensive than the old cached material; use
 a lower render width on slower GPUs. The preview displays observed presentation
 cadence, not a controlled GPU benchmark.
+
+### Quality upgrade without more runtime work
+
+The upgrade changes **trained weight literals only** in the Image shader.
+The execution graph, 28,899 parameters, 384 hidden sine activations, 7,176 packed
+dot products, one inference per pixel, and default 384×288 resolution are all
+unchanged. No sharpening filter, extra pass, resolution reduction, procedural
+detail or image cache was added. The A/B timing tool loads only on request.
+
+Additional offline training uses iris/edge-focused pixel sampling, neighboring
+pixel differences, and stronger penalties for errors on smooth white/background
+regions. These are training-only loss terms, not runtime masks or features.
+The three refinement stages add 30,000 + 16,000 + 14,000 updates (96,000 total,
+including the original training).
+
+After choosing the weights using the original 20 validation states, a fresh
+test set of **24 independent control states plus 40 animation states** measured:
+
+| Display-RGB reconstruction error | Change from the previous shader |
+|---|---:|
+| Whole-image MSE | −21.8% |
+| Iris-region MSE | −37.4% |
+| Edge-region MSE | −29.0% |
+| White-of-eye-region MSE | −45.7% |
+| Animation frame-difference error, RMSE | −10.5% |
+
+Region definitions, all per-state results and captured-data hashes are in
+[quality evidence](03_raymarching/full_neural_eye_quality.json).
+See [teacher / before / after](03_raymarching/full_neural_eye_quality.png) and
+[enlarged iris details](03_raymarching/full_neural_eye_detail.png). Images are
+direct model output; the detail sheet uses nearest-neighbor enlargement only.
+The tradeoff is a small background-error increase: MSE `1.25e-5 → 1.50e-5`.
+Fine teacher fibers and some faint neural surface ripples remain imperfect.
+
+The preview's **Compare before/after GPU time** button measures the frozen
+`b8ae3dc` shader and the current shader in the same context and RGBA8 target,
+at 384×288 and 512×384. It warms both programs, uses alternating ABBA/BAAB order,
+and collects 48 samples per version/resolution, with eight complete renders per
+sample. Native GPU timers are used when their startup probe works; otherwise
+all samples use completion-synchronized wall time. Compilation and UI refresh
+are not part of the timed intervals. A 5% non-regression tolerance accommodates
+local measurement noise; this is not a universal hardware guarantee.
+
+[Recorded native-GPU timings](03_raymarching/full_neural_eye_performance.json)
+on AMD Radeon Pro 5300M are **3.337 → 3.314 ms** at 384×288 and
+**7.365 → 7.362 ms** at 512×384. Paired median ratios are 0.994 and 1.003:
+effectively unchanged performance within measurement noise, not a speedup claim.
 
 ### Full-neural validation and reproduction
 
@@ -140,6 +188,22 @@ python scripts/full_eye/train.py deliver --name full_eye_refined
 
 The trained checkpoint is also included at `scripts/full_eye/full_neural_eye.pt`.
 Generated capture/training scratch files stay ignored under `scripts/full_eye/work/`.
+
+To reproduce the quality upgrade after generating the teacher captures above:
+
+```sh
+python scripts/full_eye/refine_quality.py snapshot
+python scripts/full_eye/refine_quality.py train --steps 30000 --checkpoint-every 10000
+python scripts/full_eye/refine_quality.py train --name quality_balanced --resume scripts/full_eye/work/quality_refined.pt --steps 16000 --checkpoint-every 8000 --lr .000008 --end-lr .0000015 --background-weight 12 --sclera-weight 5
+python scripts/full_eye/refine_quality.py train --name quality_smooth --resume scripts/full_eye/work/quality_balanced.pt --steps 14000 --checkpoint-every 7000 --lr .000008 --end-lr .0000015 --background-weight 12 --sclera-weight 5 --background-gradient-weight 64 --sclera-gradient-weight 32
+python scripts/full_eye/refine_quality.py capture-test
+python scripts/full_eye/refine_quality.py test --name quality_smooth
+python scripts/full_eye/refine_quality.py deliver --name quality_smooth
+```
+
+The snapshot command retrieves the original baseline from commit `b8ae3dc`,
+not the already-upgraded weights. Re-run GPU verification and timing, and record
+fresh source hashes, after any new export; old GPU evidence must not be reused.
 
 ## Older hybrid neural iris material (09–10)
 
