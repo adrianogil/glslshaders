@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Full neural eye · Two-axis saccades</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0b1116;color:#e4ebee}*{box-sizing:border-box}body{margin:0}main{max-width:1050px;margin:auto;padding:26px}h1{font-size:26px;margin:8px 0}p{color:#a6bbc5;line-height:1.5}.eyebrow{font-size:11px;letter-spacing:2px;color:#92d5cd}canvas{display:block;width:100%;aspect-ratio:4/3;max-height:66vh;object-fit:contain;background:#15212a;border:1px solid #30444b;border-radius:14px;touch-action:none}.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin:24px 0}label{font-size:13px}input{display:block;width:100%;accent-color:#92d5cd;margin-top:10px}output{float:right;color:#92d5cd}button,select{background:#172831;color:#e4ebee;border:1px solid #36515b;border-radius:7px;padding:9px 12px;font:inherit;font-size:13px;cursor:pointer}.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}#status{color:#92d5cd;font-size:12px}details{margin-top:24px}summary{cursor:pointer}pre{white-space:pre-wrap;overflow:auto;font-size:11px;color:#b8d4dc}a{color:#92d5cd}#source{width:100%;height:180px;font:11px monospace}button:disabled{opacity:.5}@media(max-width:640px){main{padding:16px}.controls{grid-template-columns:1fr 1fr}}
+</style></head><body><main>
+<div class="eyebrow">GLSL STUDY 12 / LEARNED HORIZONTAL + VERTICAL GAZE</div>
+<h1>Wide saccades. Every pixel neural.</h1>
+<p>A seven-input network learns the entire eye at different yaw and pitch angles. No image rotation, warping, procedural eye shading, or texture cache.</p>
+<canvas id="eye" width="384" height="288" tabindex="0" aria-label="Neural eye: drag horizontally and vertically to control gaze"></canvas>
+<div class="controls">
+<label>Horizontal gaze <output id="yawValue"></output><input id="yaw" aria-label="Horizontal gaze" type="range" min="0" max="1" step=".001" value=".5"></label>
+<label>Vertical gaze <output id="pitchValue"></output><input id="pitch" aria-label="Vertical gaze" type="range" min="0" max="1" step=".001" value=".46"></label>
+<label>Pupil <output id="pupilValue"></output><input id="pupil" aria-label="Pupil" type="range" min="0" max="1" step=".001" value=".4"></label>
+<label>Hue <output id="hueValue"></output><input id="hue" aria-label="Hue" type="range" min="0" max="1" step=".001" value=".56"></label>
+</div>
+<div class="toolbar"><button id="play" disabled>Pause saccades</button><button id="reset" disabled>Reset</button><label>Width <select id="resolution"><option>256</option><option selected>384</option><option>512</option><option>768</option></select></label><span id="status">Loading network…</span></div>
+<details><summary>Model, validation, and ShaderToy source</summary>
+<p>28,995 parameters; yaw 32–76°, pitch −28–22°, pupil and hue 0–1. This is a bounded conditional image model, not an arbitrary-camera 3D field. The old fixed-pitch shader remains unchanged.</p>
+<p><a href="full_neural_saccadic_eye_comparison.png">Teacher / neural comparison</a> · <a href="full_neural_saccadic_eye_model.json">Training metadata</a></p>
+<button id="validate" disabled>Run GPU parity and two-axis checks</button><pre id="report"></pre>
+<p>For ShaderToy: paste the complete source into Image; leave all channels empty. Mouse X/Y controls horizontal/vertical gaze. Release resumes saccades. Edit IRIS_HUE and PUPIL_SIZE for the other neural conditions.</p>
+<button id="showSource" disabled>Show complete shader source</button><label id="sourceLabel" hidden>Complete shader<textarea id="source" readonly></textarea></label>
+</details></main>
+<script type="module">
+import {createRenderer,validate} from './full_neural_saccadic_eye_runtime.mjs';
+const $=id=>document.getElementById(id),canvas=$('eye');
+let renderer,source,playing=true,manual=false,busy=false,time=0,last=performance.now(),frames=0,since=performance.now();
+const controls=[.5,.4,.56,.46];
+function labels(){for(const [id,k] of [['yaw',0],['pupil',1],['hue',2],['pitch',3]])$(id).value=controls[k];$('yawValue').textContent=manual?(32+44*controls[0]).toFixed(1)+'°':'auto';$('pitchValue').textContent=manual?(-28+50*controls[3]).toFixed(1)+'°':'auto';$('pupilValue').textContent=Math.round(controls[1]*100)+'%';$('hueValue').textContent=controls[2].toFixed(2);}
+function draw(){if(renderer&&!busy)renderer.draw(time,controls,manual);labels();}
+function pose(){manual=true;playing=false;$('play').textContent='Resume saccades';draw();}
+for(const [id,k] of [['yaw',0],['pupil',1],['hue',2],['pitch',3]])$(id).addEventListener('input',()=>{controls[k]=+$(id).value;if(id==='yaw'||id==='pitch')pose();else draw();});
+$('play').onclick=()=>{if(manual){manual=false;playing=true;}else playing=!playing;$('play').textContent=playing?'Pause saccades':'Resume saccades';draw();};
+$('reset').onclick=()=>{controls.splice(0,4,.5,.4,.56,.46);manual=false;playing=true;time=0;$('play').textContent='Pause saccades';draw();};
+$('resolution').onchange=()=>{canvas.width=+$('resolution').value;canvas.height=Math.round(canvas.width*.75);draw();};
+function drag(e){const r=canvas.getBoundingClientRect();controls[0]=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));controls[3]=Math.max(0,Math.min(1,(e.clientY-r.top)/r.height));pose();}
+canvas.onpointerdown=e=>{canvas.setPointerCapture(e.pointerId);drag(e);};canvas.onpointermove=e=>{if(canvas.hasPointerCapture(e.pointerId))drag(e);};
+canvas.onkeydown=e=>{const keys={ArrowLeft:[0,-.04],ArrowRight:[0,.04],ArrowUp:[3,-.04],ArrowDown:[3,.04]};if(!keys[e.key])return;e.preventDefault();const [k,d]=keys[e.key];controls[k]=Math.max(0,Math.min(1,controls[k]+d));pose();};
+$('showSource').onclick=()=>{$('source').value=source;$('sourceLabel').hidden=false;};
+$('validate').onclick=async()=>{busy=true;$('validate').disabled=true;$('report').textContent='Running neural GPU checks…';try{
+const fixture=await fetch('./full_neural_saccadic_eye_parity.json').then(r=>r.json());const result=await validate(renderer,canvas,fixture,source);
+result.source_sha256={};for(const name of ['12_full_neural_saccadic_eye.frag','12_full_neural_saccadic_eye_preview.html','full_neural_saccadic_eye_runtime.mjs','full_neural_saccadic_eye_parity.json']){const bytes=await fetch(name).then(r=>r.arrayBuffer());result.source_sha256[name]=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(v=>v.toString(16).padStart(2,'0')).join('');}
+$('report').textContent=JSON.stringify(result,null,2);$('status').textContent=result.passed?'All GPU checks passed':'GPU checks failed';
+}catch(e){$('report').textContent=e.stack;}finally{busy=false;$('validate').disabled=false;draw();}};
+function frame(now){if(playing&&!busy)time+=(now-last)/1000;last=now;if(playing&&!busy){draw();frames++;}if(now-since>2000&&!busy){$('status').textContent=(playing?(frames*1000/(now-since)).toFixed(1)+' presentation frames/s':manual?'Manual two-axis gaze':'Paused')+' · '+canvas.width+'×'+canvas.height;frames=0;since=now;}requestAnimationFrame(frame);}
+try{source=await fetch('./12_full_neural_saccadic_eye.frag').then(r=>{if(!r.ok)throw Error('Shader load failed');return r.text();});renderer=await createRenderer(canvas,source);for(const id of ['play','reset','validate','showSource'])$(id).disabled=false;$('status').textContent='Two-axis neural model compiled';last=performance.now();draw();requestAnimationFrame(frame);}catch(e){$('status').textContent=e.message;console.error(e);}
+</script></body></html>

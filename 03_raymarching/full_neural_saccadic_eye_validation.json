@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "checks": {
+    "pytorch_glsl_parity": true,
+    "visible_image": true,
+    "yaw_response": true,
+    "pitch_response": true,
+    "pupil_response": true,
+    "hue_response": true,
+    "loop_closed": true,
+    "animation_response": true,
+    "vertical_mouse_gaze": true,
+    "horizontal_mouse_gaze": true,
+    "mouse_release_resumes_animation": true,
+    "zero_network_removes_whole_image": true,
+    "no_gl_errors": true
+  },
+  "measurements": {
+    "parity_max": 7.748603820800781e-7,
+    "parity_mae": 9.083790549387534e-8,
+    "yaw_mae": 0.029376770152505446,
+    "pitch_mae": 0.0404057734204793,
+    "pupil_mae": 0.0098291802832244,
+    "hue_mae": 0.0168510348583878,
+    "loop_mae": 0,
+    "animation_mae": 0.039918641067538126,
+    "vertical_mouse_mae": 0.05659034586056645,
+    "horizontal_mouse_mae": 0.060845520152505446
+  },
+  "probes": 128,
+  "renderer": "ANGLE (AMD, ANGLE Metal Renderer: AMD Radeon Pro 5300M, Unspecified Version)",
+  "gl_errors": [],
+  "captured_at": "2026-09-13T02:31:20.762Z",
+  "scope": "Local WebGL validation of 7-input full-image neural shader; independent of previous fixed-pitch evidence.",
+  "source_sha256": {
+    "12_full_neural_saccadic_eye.frag": "87f8aec050c720791b3d55fc36607142a176e9aaf1f30146cab747409e2818f2",
+    "12_full_neural_saccadic_eye_preview.html": "58786ca1e679139fb35b42307017331e871bb41d62da5b1df29deb20b6b11670",
+    "full_neural_saccadic_eye_runtime.mjs": "22b0b460bf9ecd85a6b008760638ee54ba96dab0288648ddcee65b7e83e5c0bf",
+    "full_neural_saccadic_eye_parity.json": "112d616601d14eaa6bfacc66e30ed185a4023fba86aae2a5695a02bb8d084d7f"
+  }
+}

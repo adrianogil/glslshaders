@@ -40,7 +40,73 @@ Then open `/07_animation/14_hinged_square_map_coloring_preview.html`. Its
 keys to scrub, and press 0–4 for the final, hinge, parity, colour-index, and
 seam-ownership views.
 
-## Full-image neural eye (corrected implementation)
+## Wide two-axis neural saccades (shader 12)
+
+[12_full_neural_saccadic_eye.frag](03_raymarching/12_full_neural_saccadic_eye.frag)
+extends the whole-image network with a **learned pitch input**. It does not fake
+vertical gaze by moving or rotating the image. All RGB—including the eye,
+reflections, shadow, and background—still comes directly from one network
+evaluation per pixel. The older fixed-pitch shader 11 and its evidence remain
+unchanged.
+
+The new model is **7→96→96→96→96→3, 28,995 parameters**: only 96 more weights,
+with the same 384 hidden sine activations and 7,176 packed dot products. This is
+an operation-count comparison, not a new measured performance guarantee.
+Training starts from the refined shader-11 checkpoint with an initially zero
+pitch column, then fits 768 offline 3D teacher states at 256×256. Of those,
+128 retain the original −5° pitch for rehearsal. Training uses 4,718,592
+pixel/neighbor pairs, 40,000 Adam updates, and a mix of global, eye, and
+iris-focused sampling with RGB and neighboring-pixel difference losses.
+
+The trained domain is yaw **32–76°**, pitch **−28–22°**, pupil/hue 0–1. The
+ten-second animation mixes diagonal, horizontal-only, and vertical-only jumps,
+with irregular fixations and slight settling. Its largest target changes are
+about **37° horizontally and 36° vertically**, roughly twice the previous
+horizontal-only saccade span. Mouse X/Y now controls **yaw/pitch**, not pupil;
+release resumes saccades. Set `IRIS_HUE` and `PUPIL_SIZE` in the single Image
+source. No channels or buffers are needed.
+
+[Open the two-axis preview](http://127.0.0.1:8766/03_raymarching/12_full_neural_saccadic_eye_preview.html)
+after serving this repository. It includes manual gaze, pupil/hue controls,
+GPU parity/directional checks, and a complete-source field for transfer to
+ShaderToy. Its manual sliders retain a pose; ShaderToy mouse release resumes
+the animation.
+
+Forty held-out validation states measured **36.65 dB full-image / 34.16 dB
+eye-box PSNR**. After the final checkpoint was selected, 64 fresh test states
+(32 random plus 32 along the wide gaze family) measured **36.49 / 33.99 dB**,
+with worst eye-box PSNR **29.91 dB**. The eye box is `|x|,|y| < 1.04` at
+256×256. These are scores against this teacher over the new two-axis domain,
+not a direct quality comparison with shader 11 or photographic realism scores.
+Fine fibers, reflections, and smooth surfaces remain approximate.
+
+See [teacher/neural views](03_raymarching/full_neural_saccadic_eye_comparison.png),
+[checkpoint/training/test metadata](03_raymarching/full_neural_saccadic_eye_model.json),
+and [the new pipeline](scripts/full_eye_gaze/train.py). Scratch captures remain
+ignored under `scripts/full_eye_gaze/work/`; the trained checkpoint is tracked.
+
+All **13 GPU checks passed** on ANGLE Metal / AMD Radeon Pro 5300M: 128-probe
+PyTorch/GLSL parity (maximum `7.75e-7`), separate yaw/pitch/pupil/hue responses,
+both mouse axes, exact loop closure, return to animation after mouse release,
+and an ablation in which zero neural output removes the entire image.
+[Source-bound GPU evidence](03_raymarching/full_neural_saccadic_eye_validation.json)
+is separate from shader 11's results. The new source also compiled in the
+user's actual ShaderToy editor (6.1 seconds) and was visually checked there.
+It was left **unsaved, private, and unpublished**; no public shader ID is claimed.
+
+Reproduction uses Python with PyTorch/NumPy/Pillow and macOS OpenGL/clang++ for
+offline capture. Run in a disposable copy when experimenting: capture/export
+replace shader-12 artifacts and require new source-bound GPU evidence.
+
+```sh
+python scripts/full_eye_gaze/train.py capture
+python scripts/full_eye_gaze/train.py train --steps 40000 --name gaze
+python scripts/full_eye_gaze/train.py capture-test
+python scripts/full_eye_gaze/train.py deliver --name gaze
+node scripts/validate_full_neural_saccadic_eye.mjs
+```
+
+## Fixed-pitch full-image neural eye (shader 11)
 
 [11_full_neural_eye.frag](03_raymarching/11_full_neural_eye.frag) is a **whole-image
 neural renderer**, unlike the older hybrid material study below. Its entire
