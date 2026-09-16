@@ -82,8 +82,9 @@ Fine fibers, reflections, and smooth surfaces remain approximate.
 
 See [teacher/neural views](03_raymarching/full_neural_saccadic_eye_comparison.png),
 [checkpoint/training/test metadata](03_raymarching/full_neural_saccadic_eye_model.json),
-and [the new pipeline](scripts/full_eye_gaze/train.py). Scratch captures remain
-ignored under `scripts/full_eye_gaze/work/`; the trained checkpoint is tracked.
+and [the new pipeline](../../research/neural-shaders-pocs/poc_animated_conditional_eye_fragment_shader/scripts/full_eye_gaze/train.py).
+The pipeline, tracked checkpoint, and ignored scratch captures now live in the
+research POC; see [training pipeline location](#training-pipeline-location).
 
 All **13 GPU checks passed** on ANGLE Metal / AMD Radeon Pro 5300M: 128-probe
 PyTorch/GLSL parity (maximum `7.75e-7`), separate yaw/pitch/pupil/hue responses,
@@ -99,11 +100,12 @@ offline capture. Run in a disposable copy when experimenting: capture/export
 replace shader-12 artifacts and require new source-bound GPU evidence.
 
 ```sh
+cd ../../research/neural-shaders-pocs/poc_animated_conditional_eye_fragment_shader
 python scripts/full_eye_gaze/train.py capture
 python scripts/full_eye_gaze/train.py train --steps 40000 --name gaze
 python scripts/full_eye_gaze/train.py capture-test
 python scripts/full_eye_gaze/train.py deliver --name gaze
-node scripts/validate_full_neural_saccadic_eye.mjs
+node ../../../graphics/glslshaders/scripts/validate_full_neural_saccadic_eye.mjs
 ```
 
 ## Fixed-pitch full-image neural eye (shader 11)
@@ -162,7 +164,7 @@ eye-region box (previously 37.53 / 34.64 / 33.03 dB). These compare this model
 to this offline teacher, not to photographs or an anatomically calibrated eye.
 See [unretouched teacher/neural comparisons](03_raymarching/full_neural_eye_comparison.png),
 [training metadata](03_raymarching/full_neural_eye_model.json), and the
-[reproducible training/export pipeline](scripts/full_eye/train.py).
+[reproducible training/export pipeline](../../research/neural-shaders-pocs/poc_animated_conditional_eye_fragment_shader/scripts/full_eye/train.py).
 
 The learned view family is bounded: yaw 32–76°, fixed pitch −5°, pupil/hue
 0–1. This is a conditional image representation of a 3D eye, **not** a neural
@@ -242,20 +244,48 @@ passes all 11 checks on ANGLE Metal / AMD Radeon Pro 5300M. Maximum RGB
 disagreement with PyTorch is `9.24e-7`; the ten-second loop matches exactly.
 Recorded hashes tie that result to the shipped shader, host and probe fixture.
 
+### Training pipeline location
+
+Offline capture, training, refinement, export templates, checkpoints, and local
+`work/` data live in
+[`neural-shaders-pocs/poc_animated_conditional_eye_fragment_shader`](../../research/neural-shaders-pocs/poc_animated_conditional_eye_fragment_shader/README.md#full-image-neural-eye-pipelines).
+Only deployed GLSL, browser previews/runtime assets, exported model/evidence
+files, and deployment validators remain in this repository. Running a preview
+does not require the research checkout or Python.
+
+The workspace defaults are `workspace/graphics/glslshaders` and
+`workspace/research/neural-shaders-pocs`. Set `GLSLSHADERS_DIR` to the absolute
+GLSL repository path for Python capture/export, or `NEURAL_SHADERS_POCS_DIR` to
+the absolute research repository path for the Node deployment validators, if
+your checkouts use a different layout. Full provenance checks require both
+repositories; the offline teacher is read from shaders 09–10 here.
+
+The 2026-09-16 move did not retrain or change shader weights. Historical model
+metadata, resume paths, GPU reports, and performance measurements are retained
+as recorded. The [relocation manifest](scripts/neural_eye_pipeline_relocation.json)
+binds the three path-adjusted training sources to their original hashes. The
+shader-11 preview's informational training link was updated; validation reverses
+only that exact anchor replacement to verify the complete previously measured
+host. No rendering code changed and no new GPU timing is claimed.
+
 To reproduce training, use Python with `torch`, `numpy`, and `Pillow`, plus
 macOS `clang++`/OpenGL for the offline teacher capture:
 
 ```sh
+# Starting from the glslshaders repository root:
+cd ../../research/neural-shaders-pocs/poc_animated_conditional_eye_fragment_shader
 python scripts/full_eye/train.py capture --states 384 --resolution 256
 python scripts/full_eye/train.py train --steps 12000 --checkpoint-every 3000 --threads 4 --width 96 --depth 4 --batch 2048 --name full_eye
 python scripts/full_eye/train.py train --steps 24000 --checkpoint-every 6000 --threads 4 --width 96 --depth 4 --batch 2048 --lr .00004 --end-lr .000005 --resume scripts/full_eye/work/full_eye.pt --name full_eye_refined
 python scripts/full_eye/train.py deliver --name full_eye_refined
 ```
 
-The trained checkpoint is also included at `scripts/full_eye/full_neural_eye.pt`.
-Generated capture/training scratch files stay ignored under `scripts/full_eye/work/`.
+The trained checkpoint is included at `scripts/full_eye/full_neural_eye.pt`
+inside the POC. Generated capture/training scratch files stay ignored under
+the POC's `scripts/full_eye/work/`.
 
-To reproduce the quality upgrade after generating the teacher captures above:
+To reproduce the quality upgrade after generating the teacher captures above,
+continue from that same POC directory:
 
 ```sh
 python scripts/full_eye/refine_quality.py snapshot

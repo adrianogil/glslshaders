@@ -8,19 +8,20 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {header,footer} from '../03_raymarching/full_neural_eye_runtime.mjs';
 import {graphSignature} from '../03_raymarching/full_neural_eye_benchmark.mjs';
+import {verifyTrainingFile,verifyRecordedSceneFile} from './neural_eye_pipeline_paths.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const scene=join(root,'03_raymarching');
 const file=join(scene,'11_full_neural_eye.frag'),source=readFileSync(file,'utf8');
 const metadata=JSON.parse(readFileSync(join(scene,'full_neural_eye_model.json'),'utf8'));
 const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
 assert.equal(hash(file),metadata.shader_sha256,'Shader weights must match measured checkpoint.');
-assert.equal(hash(join(root,'scripts/full_eye/full_neural_eye.pt')),metadata.checkpoint_sha256);
-assert.equal(hash(join(root,'scripts/full_eye/train.py')),metadata.training_source_sha256);
+verifyTrainingFile('scripts/full_eye/full_neural_eye.pt',metadata.checkpoint_sha256);
+verifyTrainingFile('scripts/full_eye/train.py',metadata.training_source_sha256);
 assert.equal(hash(join(scene,'full_neural_eye_parity.json')),metadata.parity_fixture_sha256);
 assert.equal(hash(join(scene,'full_neural_eye_comparison.png')),metadata.comparison_sha256);
 assert.deepEqual(metadata.architecture,[6,96,96,96,96,3]);assert.equal(metadata.parameter_count,28899);
 const quality=JSON.parse(readFileSync(join(scene,'full_neural_eye_quality.json'),'utf8'));
-assert.equal(quality.source_sha256,hash(join(root,'scripts/full_eye/refine_quality.py')));
+verifyTrainingFile('scripts/full_eye/refine_quality.py',quality.source_sha256);
 assert.equal(quality.baseline_shader_sha256,hash(join(scene,'full_neural_eye_baseline.txt')));
 assert.equal(graphSignature(source),graphSignature(readFileSync(join(scene,'full_neural_eye_baseline.txt'),'utf8')),
   'Quality refinement must change weight literals only, not the per-pixel execution graph.');
@@ -50,7 +51,7 @@ for(const r of timing.results){
   assert.ok(r.after_before_ratio<=1.05&&r.paired_ratio_median<=1.05,'Measured performance regression.');
   assert.ok(Math.abs(r.after_median_ms/r.before_median_ms-r.after_before_ratio)<1e-12);
 }
-for(const [name,digest] of Object.entries(timing.source_sha256))assert.equal(hash(join(scene,name)),digest,`Stale performance evidence: ${name}`);
+for(const [name,digest] of Object.entries(timing.source_sha256))verifyRecordedSceneFile(name,digest);
 const code=source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/[^\n]*/g,'');
 assert.ok(!/texture|texelFetch|sampler|iChannel|refract|reflect|smoothstep|sphereRoots|irisPigment|scene\(/.test(code),
   'No textures, caches, analytic eye geometry, material or optical renderer may enter the full-neural runtime.');
@@ -67,7 +68,7 @@ assert.equal(gpu.passed,true);assert.equal(Object.keys(gpu.checks).length,11);
 assert.ok(Object.values(gpu.checks).every(v=>v===true));assert.equal(gpu.probes,128);
 assert.ok(gpu.measurements.parity_max<.0005);assert.equal(gpu.measurements.loop_mae,0);
 assert.equal(gpu.checks.zero_network_removes_whole_image,true);assert.deepEqual(gpu.gl_errors,[]);
-for(const [name,digest] of Object.entries(gpu.source_sha256))assert.equal(hash(join(scene,name)),digest,`Stale GPU evidence: ${name}`);
+for(const [name,digest] of Object.entries(gpu.source_sha256))verifyRecordedSceneFile(name,digest);
 const preview=readFileSync(join(scene,'11_full_neural_eye_preview.html'),'utf8');
 assert.ok(!/fetch\([^)]*(?:09_controllable|10_neural|material)/.test(preview));
 const module=preview.match(/<script type="module">([\s\S]*?)<\/script>/)?.[1];assert.ok(module);

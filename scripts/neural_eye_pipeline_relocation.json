@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-16",
+  "poc_directory": "poc_animated_conditional_eye_fragment_shader",
+  "original_glslshaders_commit": "ba3a13b41c0145436f1d0fe5c272fc812dd3ba9a",
+  "scope": "Repository relocation only. No retraining, shader/weight changes, or new GPU/performance measurement. Historical model metadata, source hashes, resume arguments and GPU reports remain unchanged.",
+  "changed_training_sources": {
+    "scripts/full_eye/train.py": {
+      "before_sha256": "adde0b0696b3612a70501c450164a9546c3d10a588010ca51a5f07e6037279ef",
+      "after_sha256": "90866c104a1a0f0ff47d707f46d46be31da9d83bb21f19aadc21c2913c6ce774"
+    },
+    "scripts/full_eye/refine_quality.py": {
+      "before_sha256": "36ce610668ae4f982870072a1c2c5c63967a61a347715f906fed9070d83ce793",
+      "after_sha256": "1d68421693bed3ceb8f3d01bd04f2304000a3412d8163d453c98d92aa40347e8"
+    },
+    "scripts/full_eye_gaze/train.py": {
+      "before_sha256": "9945e689664dc287e39e16acac8153cb61f0190e282295982bb4b14f0bd06a60",
+      "after_sha256": "4594c67ae6268b2a2c524bb5a026e4f37c960673010dac1475cfbcc09a68e1cf"
+    }
+  },
+  "preview_documentation_link": {
+    "file": "11_full_neural_eye_preview.html",
+    "before": "<a href=\"../scripts/full_eye/train.py\">Training source</a>",
+    "after": "<a href=\"../README.md#training-pipeline-location\">Training pipeline location</a>"
+  }
+}
