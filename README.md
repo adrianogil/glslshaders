@@ -28,6 +28,11 @@ node scripts/validate_hinged_square_coloring.mjs
 
 ## Local previews
 
+The [Oscillating Point Ribbons study](09_point_ribbons/README.md) ports
+yuruyurau's 10,000-point sketch to one Shadertoy Image pass, with conservative
+angular culling and no textures or buffers. Its preview is
+`/09_point_ribbons/01_oscillating_point_ribbons_preview.html`.
+
 Preview pages load their paired shader with `fetch`, so serve the repository
 instead of opening the HTML directly. For example:
 
