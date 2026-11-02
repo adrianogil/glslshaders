@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ember / Fragment study</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#09090c;color:#eee8df;font-family:Arial,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none}header{position:fixed;top:30px;left:35px;pointer-events:none}h1{font:44px Georgia;margin:12px 0}small{font:10px monospace;letter-spacing:2px;color:#b69b83}header p{font-size:12px;color:#ac9e93}aside{position:fixed;right:28px;top:28px;width:235px;padding:22px;border:1px solid #ffffff20;background:#111014ed;border-radius:8px;max-height:calc(100dvh - 110px);overflow:auto}label{display:block;font-size:12px;margin:18px 0 8px}input,select{width:100%;accent-color:#e9aa71}select,button,a{background:#201a17;border:1px solid #ffffff25;color:#eee8df;padding:10px;border-radius:4px;font-size:11px}button{cursor:pointer}select{display:block}a{display:block;margin-top:10px;text-align:center;text-decoration:none}.actions{display:flex;gap:8px;margin-top:20px}.actions button{flex:1}footer{position:fixed;bottom:25px;left:35px;right:28px;display:flex;justify-content:space-between;font:10px monospace;color:#b69b83;border-top:1px solid #ffffff20;padding-top:18px}#error{position:fixed;inset:30%;background:#321a17;padding:30px;white-space:pre-wrap}button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #e9aa71;outline-offset:3px}[hidden]{display:none!important}@media(max-width:650px){header{top:20px;left:20px}h1{font-size:30px}header p{max-width:160px;line-height:1.5}aside{top:auto;bottom:70px;right:12px;padding:14px;width:175px;max-height:48dvh}label{margin-top:12px}footer{left:20px;font-size:8px}footer span:first-child{max-width:180px}}
+</style></head><body>
+<canvas id="canvas" aria-label="Animated procedural ember galaxy. Drag to change viewing angle."></canvas>
+<header><small>EMBER / FRAGMENT STUDY 015</small><h1>A field of small fires.</h1><p>After Kurt Moerman’s logarithmic particle sketch.</p></header>
+<aside><small>OBSERVATION DECK</small>
+<label for="speed">Orbital motion</label><input id="speed" type="range" min="-2" max="3" step=".05" value="1">
+<label for="twist">Spiral winding</label><input id="twist" type="range" min="0" max="6" step=".05" value="3">
+<label for="tilt">Inclination</label><input id="tilt" type="range" min=".14" max="1" step=".01" value=".48">
+<label for="yaw">View rotation</label><input id="yaw" type="range" min="-3.14" max="3.14" step=".01" value="-.35">
+<label for="glow">Starlight</label><input id="glow" type="range" min=".3" max="2" step=".05" value="1">
+<label for="palette">Spectrum</label><select id="palette"><option value="0">Ember</option><option value="1">Ion</option><option value="2">Rose</option></select>
+<label for="resolution">Resolution</label><select id="resolution"><option value=".65">Eco · 65%</option><option value="1" selected>Native · 1×</option><option value="1.5">Fine · up to 1.5×</option></select>
+<div class="actions"><button id="pause" aria-pressed="false">Ⅱ Pause</button><button id="reset">Reset</button></div><a href="./15_ember_galaxy.frag" download>Download ShaderToy source ↓</a></aside>
+<footer><span>ONE IMAGE PASS · NO TEXTURES · DRAG TO POSE</span><span id="fps">COMPILING…</span></footer><pre id="error" hidden role="alert"></pre>
+<script type="module">
+const $=id=>document.getElementById(id), canvas=$('canvas');
+try {
+const gl=canvas.getContext('webgl2',{antialias:false,alpha:false,powerPreference:'high-performance'});if(!gl)throw Error('WebGL 2 is required. Enable hardware acceleration and reload.');
+const response=await fetch('./15_ember_galaxy.frag');if(!response.ok)throw Error('Unable to load the shader. Serve this repository over HTTP.');const source=await response.text();
+function compile(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
+const vertex=compile(gl.VERTEX_SHADER,`#version 300 es
+void main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.-1.,0.,1.);}`);
+const fragment=compile(gl.FRAGMENT_SHADER,`#version 300 es
+precision highp float;
+#define EMBER_HOST
+uniform vec3 iResolution;uniform float iTime;uniform vec4 iMouse;
+out vec4 outColor;
+${source}
+void main(){mainImage(outColor,gl_FragCoord.xy);}`);
+const program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.useProgram(program);gl.bindVertexArray(gl.createVertexArray());
+const location={};for(const name of ['iResolution','iTime','iMouse','uSpeed','uTwist','uTilt','uYaw','uGlow','uPalette'])location[name]=gl.getUniformLocation(program,name);
+let paused=matchMedia('(prefers-reduced-motion: reduce)').matches,time=0,last=0,frames=0,elapsed=0,dragging=false;
+function resize(){const scale=Math.min(devicePixelRatio,Number($('resolution').value));canvas.width=Math.round(innerWidth*scale);canvas.height=Math.round(innerHeight*scale);gl.viewport(0,0,canvas.width,canvas.height);}
+function pause(value){paused=value;$('pause').textContent=paused?'▶ Resume':'Ⅱ Pause';$('pause').setAttribute('aria-pressed',paused);}
+$('resolution').onchange=resize;addEventListener('resize',resize);$('pause').onclick=()=>pause(!paused);
+$('reset').onclick=()=>{for(const [id,v] of [['speed',1],['twist',3],['tilt',.48],['yaw',-.35],['glow',1],['palette',0],['resolution',1]])$(id).value=v;time=0;pause(matchMedia('(prefers-reduced-motion: reduce)').matches);resize();};
+canvas.onpointerdown=e=>{dragging=true;canvas.setPointerCapture(e.pointerId);pose(e);};
+function pose(e){$('yaw').value=(e.clientX/innerWidth-.5)*6.28;$('tilt').value=.14+.86*(1-e.clientY/innerHeight);}
+canvas.onpointermove=e=>{if(dragging)pose(e);};canvas.onpointerup=()=>dragging=false;canvas.onpointercancel=()=>dragging=false;
+addEventListener('keydown',e=>{if(e.code==='Space'&&!/INPUT|SELECT|BUTTON/.test(e.target.tagName)){e.preventDefault();pause(!paused);}});
+function render(now){if(document.hidden)return;const rawDt=last?(now-last)/1000:0;const dt=Math.min(rawDt,.05);last=now;if(!paused)time+=dt*Number($('speed').value);
+gl.uniform3f(location.iResolution,canvas.width,canvas.height,1);gl.uniform1f(location.iTime,time);gl.uniform4f(location.iMouse,0,0,0,0);
+for(const id of ['speed','twist','tilt','yaw','glow','palette'])gl.uniform1f(location['u'+id[0].toUpperCase()+id.slice(1)],id==='speed'?1:Number($(id).value));gl.drawArrays(gl.TRIANGLES,0,3);
+frames++;elapsed+=rawDt;if(elapsed>.7){$('fps').textContent=`${Math.round(frames/elapsed)} FPS · ${canvas.width} × ${canvas.height}`;frames=0;elapsed=0;}requestAnimationFrame(render);}
+document.addEventListener('visibilitychange',()=>{last=0;if(!document.hidden)requestAnimationFrame(render);});
+canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();$('error').hidden=false;$('error').textContent='Graphics context lost. Reload to resume.';});
+window.emberShaderDiagnostics=()=>({time,paused,width:canvas.width,height:canvas.height,error:gl.getError()});resize();pause(paused);requestAnimationFrame(render);
+} catch(error){$('error').hidden=false;$('error').textContent=error.message;$('fps').textContent='RENDERER UNAVAILABLE';}
+</script></body></html>

@@ -45,6 +45,43 @@ Then open `/07_animation/14_hinged_square_map_coloring_preview.html`. Its
 keys to scrub, and press 0–4 for the final, hinge, parity, colour-index, and
 seam-ownership views.
 
+## Ember Galaxy (animation 15)
+
+[15_ember_galaxy.frag](07_animation/15_ember_galaxy.frag) is an original
+fragment-only adaptation inspired by the supplied screenshot of Kurt Moerman’s
+(@KurtMoerman4) logarithmic particle sketch, dated November 1, 2026. It combines
+a twisted elliptical star field, gold core, red outskirts and soft analytic haze.
+It approximates the image’s aesthetic, rather than reproducing the original
+10,000 seeded points or the companion Three.js POC’s three-dimensional geometry.
+
+Paste the complete source into **ShaderToy Image**, with no channels or buffers.
+`iTime`, `iResolution` and `iMouse` are the only ShaderToy inputs. Hold and drag
+to change the inclination and rotation; release restores the configured view.
+The local preview retains dragged poses and adds motion/reverse, winding,
+starlight, palette, resolution, pause/reset and source download controls.
+
+Serve this repository, then open
+[the preview](07_animation/15_ember_galaxy_preview.html). For example:
+
+```sh
+python3 -m http.server 8768 --bind 127.0.0.1
+```
+
+Open `http://127.0.0.1:8768/07_animation/15_ember_galaxy_preview.html`.
+The host uses WebGL 2, handles shader errors visibly, respects reduced motion,
+and stops rendering in hidden tabs. Space pauses outside form controls.
+
+The shader evaluates three 3×3 cell neighborhoods (27 star candidates per
+pixel), with no textures, ray march, history buffers or all-particle loop.
+The smooth inverse warp distorts individual star shapes at strong winding;
+this is a deliberate constant-cost visual approximation. Resolution is the
+main performance control. Native 1280×720 showed about 60 fps in the local
+Codex Chromium browser, with no console warnings or errors; this measures
+presentation cadence on one machine, not GPU time or a device-independent
+performance guarantee. It has not been uploaded to ShaderToy.
+
+Companion POC: `workspace/pocs/pcg-pocs/poc-threejs-ember-galaxy`.
+
 ## Wide two-axis neural saccades (shader 12)
 
 [12_full_neural_saccadic_eye.frag](03_raymarching/12_full_neural_saccadic_eye.frag)
